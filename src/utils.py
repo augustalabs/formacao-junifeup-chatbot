@@ -1,7 +1,7 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 
-def chunking(pages, metadata, chunk_size=700, chunk_overlap=50):
+def chunking(pages, metadata, chunk_size=15000, chunk_overlap=200):
     # Apply metadata to all pages before chunking
     for page in pages:
         page.metadata.update(metadata)
