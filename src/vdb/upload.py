@@ -1,27 +1,60 @@
 import os
 from datetime import datetime
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 from langchain_openai.embeddings import OpenAIEmbeddings
 import pinecone
 from langchain_pinecone import PineconeVectorStore
+from src.drive.get_files import download_drive_folder_with_service_account
+from src.utils import process_pdf
+from src.conversion.videos import transcribe_video
+from src.conversion.images import describe_image
 
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
+FOLDER_ID = os.getenv('FOLDER_ID')
+SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE')
 
-def chunking(pages, metadata, chunk_size=700, chunk_overlap=50):
-    # Apply metadata to all pages before chunking
-    for page in pages:
-        page.metadata.update(metadata)
+def get_file_metadata(file_path):
+    """
+    Generate metadata for a file.
     
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    chunks = text_splitter.split_documents(pages)
+    Args:
+        file_path (str): Path to the file.
+        
+    Returns:
+        dict: Metadata dictionary.
+    """
+    filename = os.path.basename(file_path)
+    file_extension = os.path.splitext(filename)[1].lower()
     
-    # The metadata should be preserved in each chunk automatically
-    return chunks
+    # Map file extension to type
+    file_type_map = {
+        '.pdf': 'pdf',
+        '.mp4': 'video',
+        '.mov': 'video',
+        '.avi': 'video',
+        '.mkv': 'video',
+        '.jpg': 'image',
+        '.jpeg': 'image',
+        '.png': 'image',
+        '.gif': 'image',
+        '.bmp': 'image'
+    }
+    
+    file_type = file_type_map.get(file_extension, 'unknown')
+    
+    return {
+        'filename': filename,
+        'filepath': file_path,
+        'upload_time': datetime.now().isoformat(),
+        'file_size': os.path.getsize(file_path),
+        'file_type': file_type,
+        'relative_path': os.path.relpath(file_path, 'docs'),
+        'extension': file_extension
+    }
+
 
 def load_to_vdb(chunks, index_name='formacao-drive-documents'):
     embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
@@ -41,28 +74,48 @@ def load_to_vdb(chunks, index_name='formacao-drive-documents'):
         chunk_batch = chunks[i:i + batch_size]
         vector_store.add_documents(chunk_batch)
 
+
+def process_files_and_upload():
+    """
+    Main function to download files from Google Drive, process them based on type,
+    and upload to Pinecone.
+    """
+    print("Starting document processing pipeline...")
+    
+    # Download all files from Google Drive
+    print("Downloading files from Google Drive...")
+    downloaded_files = download_drive_folder_with_service_account(FOLDER_ID, SERVICE_ACCOUNT_FILE)
+    print(f"Downloaded {len(downloaded_files)} files in total.")
+    
+    all_chunks = []
+    
+    # Process each downloaded file based on its type
+    for file_path in downloaded_files:
+        # Get file metadata
+        metadata = get_file_metadata(file_path)
+        file_type = metadata['file_type']
+        
+        # Process based on file type
+        if file_type == 'pdf':
+            chunks = process_pdf(file_path, metadata)
+            all_chunks.extend(chunks)
+        
+        elif file_type == 'video':
+            chunks = transcribe_video(file_path, metadata)
+            all_chunks.extend(chunks)
+        
+        elif file_type == 'image':
+            chunks = describe_image(file_path, metadata)
+            all_chunks.extend(chunks)
+        
+        else:
+            print(f"Skipping unsupported file type: {file_path}")
+    
+    # Upload all processed chunks to Pinecone
+    print(f"Uploading {len(all_chunks)} chunks to Pinecone...")
+    load_to_vdb(all_chunks)
+    
+    print("Document processing pipeline completed successfully.")
+
 if __name__ == '__main__':
-    for root, _, files in os.walk('docs'):
-        for filename in files:
-            if filename.endswith('.pdf'):
-                file_path = os.path.join(root, filename)
-                
-                # Create metadata dictionary
-                metadata = {
-                    'filename': filename,
-                    'filepath': file_path,
-                    'upload_time': datetime.now().isoformat(),
-                    'file_size': os.path.getsize(file_path),
-                    'file_type': 'pdf',
-                    'relative_path': os.path.relpath(file_path, 'docs')
-                }
-                
-                # Load PDF
-                loader = PyPDFLoader(file_path)
-                pages = loader.load()
-                
-                # Process with metadata
-                chunks = chunking(pages, metadata)
-                load_to_vdb(chunks)
-                
-                print(f"Processed {filename} with {len(chunks)} chunks and metadata")
+    process_files_and_upload()
