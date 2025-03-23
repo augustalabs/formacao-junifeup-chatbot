@@ -5,7 +5,7 @@ A chatbot implementation for JUNIFEUP training.
 ## Setup Instructions
 
 ### Prerequisites
-- Python 3.x
+- Python 3.13
 
 ### Installation
 
