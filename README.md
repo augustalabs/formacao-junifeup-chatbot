@@ -59,3 +59,11 @@ The application requires access to Google Drive. Follow these steps to set up th
 Share your Google Drive folder with the service account email:
 - Service account email: `drive-folder-access@formacao-junifeup.iam.gserviceaccount.com`
 - Ensure the service account has appropriate access permissions to the folder
+
+
+
+### Converting videos
+   - Make sure you install ffmpeg with 
+   ```bash
+   brew install ffmpeg
+   ```
