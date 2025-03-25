@@ -36,7 +36,7 @@ A chatbot implementation for JUNIFEUP training.
    cp .env.example .env
    ````
 
-4. Run the application:
+5. Run the application:
    ```bash
    python3 -m main
    ```
