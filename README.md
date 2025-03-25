@@ -29,6 +29,13 @@ A chatbot implementation for JUNIFEUP training.
    pip install -r requirements.txt
    ```
 
+4. Set up the environment variables:
+   - Copy the `.env.example` file to a new file named `.env`
+   - Fill in the required environment variables in the `.env` file   
+   ````
+   cp .env.example .env
+   ````
+
 4. Run the application:
    ```bash
    python3 -m main

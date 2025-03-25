@@ -3,3 +3,4 @@
 .venv
 creds/*
 creds/service-account.json
+__pycache__

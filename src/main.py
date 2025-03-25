@@ -1,4 +1,4 @@
-from src.vdb.retriever import retrieve_context
+from vdb.retriever import retrieve_context
 import os
 from openai import OpenAI
 
